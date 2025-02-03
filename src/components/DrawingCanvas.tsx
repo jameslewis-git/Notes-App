@@ -8,6 +8,7 @@ const DrawingCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvas, setCanvas] = useState<FabricCanvas | null>(null);
   const [tool, setTool] = useState<"draw" | "erase" | "square" | "circle">("draw");
+  const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -17,6 +18,11 @@ const DrawingCanvas = () => {
       height: 600,
       backgroundColor: "#ffffff",
       isDrawingMode: true,
+    });
+
+    fabricCanvas.on('object:added', () => {
+      const jsonState = JSON.stringify(fabricCanvas.toJSON());
+      setCanvasHistory(prev => [...prev, jsonState]);
     });
 
     setCanvas(fabricCanvas);
@@ -48,9 +54,24 @@ const DrawingCanvas = () => {
     canvas.clear();
     canvas.backgroundColor = "#ffffff";
     canvas.renderAll();
+    setCanvasHistory([]);
     toast({
       title: "Canvas cleared",
       description: "All drawings have been cleared",
+    });
+  };
+
+  const handleUndo = () => {
+    if (!canvas || canvasHistory.length === 0) return;
+    
+    const previousState = canvasHistory[canvasHistory.length - 2] || JSON.stringify({ objects: [], background: "#ffffff" });
+    canvas.loadFromJSON(JSON.parse(previousState), () => {
+      canvas.renderAll();
+      setCanvasHistory(prev => prev.slice(0, -1));
+      toast({
+        title: "Undo",
+        description: "Last action has been undone",
+      });
     });
   };
 
@@ -85,7 +106,11 @@ const DrawingCanvas = () => {
           <Circle className="w-4 h-4 mr-2" />
           Circle
         </Button>
-        <Button variant="outline" onClick={() => canvas?.undo()}>
+        <Button 
+          variant="outline" 
+          onClick={handleUndo}
+          disabled={canvasHistory.length === 0}
+        >
           <Undo2 className="w-4 h-4 mr-2" />
           Undo
         </Button>
